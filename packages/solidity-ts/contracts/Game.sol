@@ -2,12 +2,13 @@
 pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./GameFactory.sol";
-struct Coordinates {
-  uint256 x;
-  uint256 y;
-}
 
 contract Game is Ownable {
+  struct Coordinates {
+    uint256 x;
+    uint256 y;
+  }
+
   enum CoordinateStatus {
     Zero,
     One,
@@ -37,6 +38,7 @@ contract Game is Ownable {
   uint256 public roundNumber;
   uint256 public gameId;
   uint256 private nonMineCount;
+  uint256 private numMines;
   uint256 public startTime;
   uint256 public timeTaken;
   uint256 public chainlinkRequestId;
@@ -45,7 +47,7 @@ contract Game is Ownable {
   CoordinateStatus[][] private playerBoard;
   CoordinateStatus[][] private realBoard;
 
-  Coordinates[] private mines;
+  mapping(uint256 => Coordinates) private mines;
 
   // uint256[] private randomNumbers;
 
@@ -58,18 +60,19 @@ contract Game is Ownable {
   function initializeGame() external {
     bool isRequestFulfilled;
     uint256[] memory randomNumbers;
+    numMines = uint256(factory.NUMBER_OF_MINES());
     (isRequestFulfilled, randomNumbers) = factory.getRequestStatus(chainlinkRequestId);
     require(isRequestFulfilled == true, "Game : Waiting for chainlink response, please try again in a few moments");
-    require(uint32(randomNumbers.length) == factory.NUMBER_OF_MINES() * 2, "Game : Insufficient mines generated");
-    mines = generateCoordinates(randomNumbers, uint256(factory.NUMBER_OF_MINES()));
-    nonMineCount = BOARDLENGTH * BOARDLENGTH - mines.length;
+    require(randomNumbers.length == numMines * 2, "Game : Insufficient mines generated");
+    generateCoordinates(randomNumbers, numMines);
+    nonMineCount = BOARDLENGTH * BOARDLENGTH - numMines;
 
     for (uint256 i = 0; i < BOARDLENGTH; i++) {
       playerBoard[i] = new CoordinateStatus[](BOARDLENGTH);
       realBoard[i] = new CoordinateStatus[](BOARDLENGTH);
     }
 
-    for (uint256 i = 0; i < mines.length; i++) {
+    for (uint256 i = 0; i < numMines; i++) {
       realBoard[mines[i].x][mines[i].y] = CoordinateStatus.Mine;
     }
 
@@ -129,7 +132,7 @@ contract Game is Ownable {
     }
 
     if (current == CoordinateStatus.Mine) {
-      for (uint256 i = 0; i < mines.length; i++) {
+      for (uint256 i = 0; i < numMines; i++) {
         playerBoard[mines[i].x][mines[i].y] = CoordinateStatus.Mine;
       }
       emit GameEnded(false, roundNumber, gameId);
@@ -173,13 +176,12 @@ contract Game is Ownable {
     return address(this);
   }
 
-  function generateCoordinates(uint256[] memory randomWords, uint256 numCoords) internal pure returns (Coordinates[] memory) {
+  function generateCoordinates(uint256[] memory randomWords, uint256 numCoords) internal {
     require(randomWords.length >= numCoords * 2, "GameFactory : Too few random numbers generated");
-    Coordinates[] memory coords = new Coordinates[](numCoords);
     for (uint256 i = 0; i < numCoords; i++) {
-      coords[i].x = randomWords[i];
-      coords[i].y = randomWords[i + 1];
+      Coordinates storage coords = mines[i];
+      coords.x = randomWords[i];
+      coords.y = randomWords[i + 1];
     }
-    return coords;
   }
 }

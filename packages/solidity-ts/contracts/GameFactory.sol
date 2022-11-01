@@ -6,7 +6,7 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/src/v0.8/ConfirmedOwner.sol";
 
 contract GameFactory is VRFConsumerBaseV2, ConfirmedOwner {
-  uint256 public constant PRICE = 1 * 10**15; // Price to start a game token, 0.001 MATIC
+  uint256 public constant PRICE = 10**15; // Price to start a game token, 0.001 MATIC
   uint256 public constant ROUND_TIME = 1 hours;
   uint32 public constant NUMBER_OF_MINES = 10;
   uint256 public constant BOARDLENGTH = 9;
@@ -77,12 +77,12 @@ contract GameFactory is VRFConsumerBaseV2, ConfirmedOwner {
     s_subscriptionId = subId;
   }
 
-  function createGame(uint256 roundId) public payable returns (uint256 gameId) {
-    if (block.timestamp - roundStartTime >= 1 hours) {
-      //END ROUND
-      roundInfo[currentRound].status = RoundStatus.RoundEnded;
-      compileWinners();
-    }
+  function createGame() public payable {
+    // if(block.timestamp - roundStartTime >= 1 hours){
+    //     //END ROUND
+    //     roundInfo[currentRound].status = RoundStatus.RoundEnded;
+    //     compileWinners();
+    // }
     require(msg.value == PRICE, "Game Factory : Incorrect price");
     // require(roundInfo[roundId] != RoundStatus.RoundEnded,"Game Factory : Round has already ended, please try again with the correct round number");
     if (roundInfo[currentRound].status == RoundStatus.RoundEnded || currentRound == 0) {
@@ -91,7 +91,7 @@ contract GameFactory is VRFConsumerBaseV2, ConfirmedOwner {
 
     // current game number is
     uint256 currentGameId = numberOfGamesInCurrentRound;
-    uint256 requestId = requestRandomWords(NUMBER_OF_MINES * 2, currentGameId);
+    uint256 requestId = requestRandomWords(NUMBER_OF_MINES * 2);
     numberOfGamesInCurrentRound++;
     // create new game with obtained random number tokens
     Game game = new Game(requestId, currentGameId);
@@ -148,7 +148,7 @@ contract GameFactory is VRFConsumerBaseV2, ConfirmedOwner {
     CHAINLINK FUNCS
     */
   // Assumes the subscription is funded sufficiently.
-  function requestRandomWords(uint32 numWords, uint256 gameId) internal returns (uint256 requestId) {
+  function requestRandomWords(uint32 numWords) internal returns (uint256 requestId) {
     // Will revert if subscription is not set and funded.
     requestId = COORDINATOR.requestRandomWords(keyHash, s_subscriptionId, requestConfirmations, callbackGasLimit, numWords);
     s_requests[requestId] = RequestStatus({ randomWords: new uint256[](0), exists: true, fulfilled: false });
